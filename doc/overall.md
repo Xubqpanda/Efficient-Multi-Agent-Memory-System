@@ -1,70 +1,76 @@
 # docs/overall.md, Efficient Multi-Agent Memory System (EMAMS) 项目整体结构设计
 
 
-├── assets/                        # 相关资源，如提示词模板、图示等
-├── benchmarks/                     # 评测基准和数据集
-|   ├── FrontierScience/
-|   └── HLE-Verified/
-├── docs/                           # 文档和设计说明
-├── experiments/                     # 实验脚本和配置
-│   ├── logs/                            # 运行日志
-│   ├── results/                         # 实验结果和分析
-│   ├── scripts/                         # 各类实用脚本，如数据处理、评测等
-├── src/
-|   |
-│   ├── common/                      # 跨层共享的数据结构
-│   │   ├── message.py               # MASMessage, AgentMessage, TaskResult
-│   │   └── __init__.py
-|   |
-│   ├── llm/
-│   │   ├── base.py
-│   │   └── openai.py
-│   │
-│   ├── mas/
-│   │   ├── autogen/
-│   │   │   ├── __init__.py
-│   │   │   ├── autogen_prompt.py
-│   │   │   └── autogen.py
-│   │   ├── dylan/
-│   │   │   ├── __init__.py
-│   │   │   ├── dylan_prompt.py               # DylanMAS(MetaMAS)
-│   │   │   ├── dylan.py
-│   │   │   └── prompt.py
-│   │   ├── macnet/
-│   │   │   ├── __init__.py
-│   │   │   ├── graph_mas.py               # MacNetMAS(MetaMAS)
-│   │   │   ├── graph_prompt.py
-│   │   │   ├── graph.py             # 图拓扑逻辑
-│   │   │   └── node.py
-│   │   ├── reasoning/
-|   |   |   ├── __init__.py
-|   |   |   └── base.py
-│   │   ├── __init__.py              # MAS 相关的抽象和接口设计
-│   │   ├── format.py                # 任务输入输出的格式规范
-│   │   ├── base.py                  # MetaMAS 抽象类（唯一需要精心设计的接口）
-│   │   │
-│   ├── memory/                      # 核心研究对象，精心设计
-│   │   ├── base.py                  # MASMemoryBase 抽象
-│   │   ├── storage/
-│   │   │   ├── base.py
-│   │   │   ├── vector_store.py
-│   │   │   └── graph_store.py
-│   │   ├── retrieval/
-│   │   │   ├── base.py
-│   │   │   └── ...
-│   │   └── methods/
-│   │       ├── empty.py
-│   │       ├── generative.py
-│   │       ├── voyager.py
-│   │       ├── g_memory.py
-│   │       └── ours/
-│   │
-│   │
-│   ├── configs/
-│   ├── benchmarks/
-│   ├── experiments/
-│   └── results/
-│
+├── assets/                                      # 相关资源，如提示词模板、图示等
+├── docs/                                        # 文档和设计说明
+├── experiments/                                 # 实验脚本和配置
+│   ├── configs/                                 # 配置文件
+|   |   ├── benchmarks                           # 基准配置文件  
+|   |   |    └── frontier_science.yaml           # FrontierScience 基准的实验配置
+|   |   └── method                               # 方法配置文件 
+|   |        └── noagent_emptymemory.yaml        # 无智能体的空记忆方法的实验配置   
+│   ├── logs/                                    # 运行日志
+│   ├── results/                                 # 实验结果和分析
+│   ├── scripts/                                 # 各类实用脚本，如数据处理、评测等
+|   |   └── run_FrontierScience.sh               # 运行 FrontierScience 基准的脚本
+│   └── benchmarks/                              # 评测基准和数据集
+│       ├── FrontierScience/                     # FrontierScience 基准   
+|       │   ├── src/                             # FrontierScience 基准的数据加载、评估代码
+|       │   ├── data/                            # FrontierScience 基准的数据
+|       │   └── prompts/                         # FrontierScience 基准的prompts
+|       |        ├── olympiad_judge_prompt.txt   # FrontierScience 基准的olympiad track评测提示词
+|       |        └── research_judge_prompt.txt   # FrontierScience 基准的research track评测提示词
+│       └── HLE-Verified/                        # HLE-Verified 基准
+├── src/                                         # 核心代码库
+│   ├── common/                                  # 跨层共享的数据结构
+│   │   ├── message.py                           # MASMessage, AgentMessage, TaskResult
+│   │   └── __init__.py                          # common 模块的初始化
+│   ├── llm/                                     # LLM 相关的接口和实现
+│   │   ├── base.py                              # LLMBase 抽象类
+│   │   └── openai.py                            # OpenAI LLM 实现
+│   ├── mas/                                     # 多智能体系统相关的接口和实现
+│   │   ├── autogen/                             # AutoGenMAS(MetaMAS)
+│   │   │   ├── __init__.py                      # AutoGenMAS 模块的初始化
+│   │   │   ├── autogen_prompt.py                # AutoGenMAS(MetaMAS) 的提示词设计
+│   │   │   └── autogen.py                       # AutoGenMAS(MetaMAS) 的核心实现
+│   │   ├── dylan/                               # DylanMAS(MetaMAS)
+│   │   │   ├── __init__.py                      # DylanMAS 模块的初始化
+│   │   │   ├── dylan_prompt.py                  # DylanMAS(MetaMAS) 的提示词设计
+│   │   │   ├── dylan.py                         # DylanMAS(MetaMAS) 的核心实现  
+│   │   │   └── neuron.py                        # DylanMAS(MetaMAS) 的神经元实现
+│   │   ├── macnet/                              # MacNetMAS(MetaMAS)
+│   │   │   ├── __init__.py                      # MacNetMAS 模块的初始化
+│   │   │   ├── graph_mas.py                     # MacNetMAS(MetaMAS) 的核心实现
+│   │   │   ├── graph_prompt.py                  # MacNetMAS(MetaMAS) 的提示词设计
+│   │   │   ├── graph.py                         # MacNetMAS(MetaMAS) 的图结构实现
+│   │   │   └── node.py                          # MacNetMAS(MetaMAS) 的节点实现
+│   │   ├── __init__.py                          # MAS 相关的抽象和接口设计
+│   │   ├── format.py                            # 任务输入输出的格式规范
+│   │   └── base.py                              # MetaMAS 抽象类
+│   ├─ reasoning/                                # Reasoning
+|   |   ├── __init__.py                          # Reasoning 模块的初始化
+|   |   └── base.py                              # ReasoningConfig、ReasoningBase、ReasoningIO
+│   ├── memory/                                  # Memory 相关的接口和实现
+│   │   ├── methods/                             # 各类 Memory 方法的实现
+│   │   |   ├── __init__.py                      # methods 模块的初始化
+│   │   |   ├── chatdev.py                       # ChatDevMASMemory 实现
+│   │   |   ├── empty.py                         # EmptyMemory 实现
+│   │   |   ├── generative.py                    # Generative Memory 实现
+│   │   |   ├── GMemory.py                       # GMemory 实现
+│   │   |   ├── memory_base.py                   # MemoryBase 抽象类
+│   │   |   ├── memorybank.py                    # MemoryBankMASMemory 实现
+│   │   |   ├── metagpt.py                       # MetaGPTMASMemory 实现
+│   │   |   ├── voyager.py                       # VoyagerMASMemory 实现
+│   │   |   └── ours/                            # ours 实现   
+│   │   ├── __init__.py                          # memory 模块的初始化
+│   │   ├── base.py                              # MemoryBase 抽象类
+│   │   └── prompt.py                            # Memory 相关的提示词设计
+│   ├── registry/                                # 各类组件的注册表设计 
+|   |   ├── __init__.py                          # registry 模块的初始化
+|   |   └── registry.py                          # MAS/Memory/Reasoning 注册表
+|   └── utils/                                   # 各类实用工具函数
+|       ├── __init__.py                          # utils 模块的初始化
+|       └── helpers.py                           # 常用的辅助函数，如加载文件等
 ├── .gitignore
 ├── LICENSE
 ├── README.md
