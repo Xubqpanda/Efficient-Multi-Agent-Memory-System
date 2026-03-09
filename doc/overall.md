@@ -8,23 +8,26 @@
 |   |   ├── benchmarks                           # 基准配置文件  
 |   |   |    └── frontier_science.yaml           # FrontierScience 基准的实验配置
 |   |   └── method                               # 方法配置文件 
-|   |        └── noagent_emptymemory.yaml        # 无智能体的空记忆方法的实验配置   
+|   |        └── single_agent_emptymemory.yaml   # 单智能体的空记忆方法的实验配置   
 │   ├── logs/                                    # 运行日志
 │   ├── results/                                 # 实验结果和分析
 │   ├── scripts/                                 # 各类实用脚本，如数据处理、评测等
 |   |   └── run_FrontierScience.sh               # 运行 FrontierScience 基准的脚本
-│   └── benchmarks/                              # 评测基准和数据集
-│       ├── FrontierScience/                     # FrontierScience 基准   
-|       │   ├── src/                             # FrontierScience 基准的数据加载、评估代码
-|       │   ├── data/                            # FrontierScience 基准的数据
-|       │   └── prompts/                         # FrontierScience 基准的prompts
-|       |        ├── olympiad_judge_prompt.txt   # FrontierScience 基准的olympiad track评测提示词
-|       |        └── research_judge_prompt.txt   # FrontierScience 基准的research track评测提示词
-│       └── HLE-Verified/                        # HLE-Verified 基准
+│   └── datas /                                  # 评测基准数据集
+│       ├── ALFWorld/                            # ALFWorld 数据   
+│       ├── Fever/                               # Fever 数据   
+│       ├── FrontierScience/                     # FrontierScience 数据   
+│       ├── HLE/                                 # HLE 数据   
+│       └── PDDL/                                # PDDL 数据
 ├── src/                                         # 核心代码库
 │   ├── common/                                  # 跨层共享的数据结构
-│   │   ├── message.py                           # MASMessage, AgentMessage, TaskResult
-│   │   └── __init__.py                          # common 模块的初始化
+│   │   ├── __init__.py                          # common 模块的初始化
+│   │   └── message.py                           # MASMessage, AgentMessage, TaskResult
+│   ├── envs/                                    # 任务处理的环境
+│   │   ├── __init__.py                          # envs 模块的初始化
+│   │   ├── alfworld.py                          # alfworld 任务环境配置
+│   │   ├── base.py                              # envs 模块基类
+│   │   └── hle.py                               # hle 任务环境配置
 │   ├── llm/                                     # LLM 相关的接口和实现
 │   │   ├── base.py                              # LLMBase 抽象类
 │   │   └── openai.py                            # OpenAI LLM 实现
@@ -44,6 +47,9 @@
 │   │   │   ├── graph_prompt.py                  # MacNetMAS(MetaMAS) 的提示词设计
 │   │   │   ├── graph.py                         # MacNetMAS(MetaMAS) 的图结构实现
 │   │   │   └── node.py                          # MacNetMAS(MetaMAS) 的节点实现
+|   │   ├── single_agent/                        # SingleAgentSolver(MetaMAS)
+│   │   │   ├── __init__.py                      # SingleAgentSolver 模块的初始化
+│   │   │   └── single_agent.py                  # SingleAgentSolver(MetaMAS) 的核心实现
 │   │   ├── __init__.py                          # MAS 相关的抽象和接口设计
 │   │   ├── format.py                            # 任务输入输出的格式规范
 │   │   └── base.py                              # MetaMAS 抽象类

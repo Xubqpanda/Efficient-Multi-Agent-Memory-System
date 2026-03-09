@@ -1,13 +1,13 @@
-# experiments/configs/methods/noagent_emptymemory.yaml
+# experiments/configs/methods/single_agent_emptymemory.yaml
 # ================================================================
 # 方法设置：No Agent Framework + Empty Memory（纯 baseline）
 # 与具体跑哪个数据集完全无关
 # ================================================================
 
 experiment:
-  name: noagent_emptymemory     # 结果目录名，建议与文件名保持一致
-  memory_method: empty          # empty / generative / voyager / g_memory / ours
-  agent_framework: none         # none / autogen / dylan / macnet
+  name: single_agent_emptymemory        # 结果目录名，建议与文件名保持一致
+  memory_method: empty                  # empty / generative / voyager / g_memory / ours
+  agent_framework: single_agent         # single_agent / autogen / dylan / macnet
 
 model:
   solver: o4-mini           # 被评测的模型
