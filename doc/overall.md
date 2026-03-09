@@ -11,14 +11,16 @@
 |   |        └── single_agent_emptymemory.yaml   # 单智能体的空记忆方法的实验配置   
 │   ├── logs/                                    # 运行日志
 │   ├── results/                                 # 实验结果和分析
-│   ├── scripts/                                 # 各类实用脚本，如数据处理、评测等
+│   ├── scripts/                                 # 跑各个基准数据集的脚本
 |   |   └── run_FrontierScience.sh               # 运行 FrontierScience 基准的脚本
-│   └── datas /                                  # 评测基准数据集
-│       ├── ALFWorld/                            # ALFWorld 数据   
-│       ├── Fever/                               # Fever 数据   
-│       ├── FrontierScience/                     # FrontierScience 数据   
-│       ├── HLE/                                 # HLE 数据   
-│       └── PDDL/                                # PDDL 数据
+│   ├── benchmarks /                             # 评测基准数据集, 包含数据加载和预处理的代码
+│   |   ├── ALFWorld/                            # ALFWorld 基准   
+│   |   ├── Fever/                               # Fever 基准   
+│   |   ├── FrontierScience/                     # FrontierScience 基准   
+│   |   ├── HLE/                                 # HLE 基准 
+|   |   |   └── data/                            # HLE 基准的数据文件
+│   |   └── PDDL/                                # PDDL 基准
+│   └── run_experiment.py                        # 统一的实验运行入口，支持不同配置的实验  
 ├── src/                                         # 核心代码库
 │   ├── common/                                  # 跨层共享的数据结构
 │   │   ├── __init__.py                          # common 模块的初始化
@@ -27,7 +29,10 @@
 │   │   ├── __init__.py                          # envs 模块的初始化
 │   │   ├── alfworld.py                          # alfworld 任务环境配置
 │   │   ├── base.py                              # envs 模块基类
-│   │   └── hle.py                               # hle 任务环境配置
+│   │   ├── fever.py                             # fever 任务环境配置
+│   │   ├── frontierscience.py                   # frontierscience 任务环境配置
+│   │   ├── hle.py                               # hle 任务环境配置
+│   │   └── pddl.py                              # pddl 任务环境配置
 │   ├── llm/                                     # LLM 相关的接口和实现
 │   │   ├── base.py                              # LLMBase 抽象类
 │   │   └── openai.py                            # OpenAI LLM 实现
