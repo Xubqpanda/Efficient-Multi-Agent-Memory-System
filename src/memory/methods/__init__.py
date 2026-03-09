@@ -6,6 +6,7 @@ from .memorybank import MemoryBankMASMemory
 from .chatdev import ChatDevMASMemory
 from .metagpt import MetaGPTMASMemory
 from .GMemory import GMemory
+from .skillmem import SkillMemory
 
 __all__ = [
     "EmptyMemory",
@@ -15,4 +16,5 @@ __all__ = [
     "ChatDevMASMemory",
     "MetaGPTMASMemory",
     "GMemory",
+    "SkillMemory",
 ]

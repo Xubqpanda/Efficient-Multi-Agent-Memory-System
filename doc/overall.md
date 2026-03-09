@@ -1,7 +1,7 @@
 # docs/overall.md, Efficient Multi-Agent Memory System (EMAMS) 项目整体结构设计
 
 
-├── assets/                                      # 相关资源，如提示词模板、图示等
+├── assets/                                      # 相关资源，如图示等
 ├── docs/                                        # 文档和设计说明
 ├── experiments/                                 # 实验脚本和配置
 │   ├── configs/                                 # 配置文件
@@ -70,8 +70,8 @@
 |   |   └── registry.py                          # MAS/Memory/Reasoning 注册表
 |   └── utils/                                   # 各类实用工具函数
 |       ├── __init__.py                          # utils 模块的初始化
-|       └── helpers.py                           # 常用的辅助函数，如加载文件等
-├── .gitignore
-├── LICENSE
-├── README.md
-└── requirements.txt
+|       └── helpers.py                           # 常用的辅助函数
+├── .gitignore                                   # git 忽略文件
+├── LICENSE                                      # 许可证
+├── README.md                                    # 项目简介和使用说明
+└── requirements.txt                             # 环境依赖

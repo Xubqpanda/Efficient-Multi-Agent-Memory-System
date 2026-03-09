@@ -1,124 +1,195 @@
 # src/mas/noagent/noagent.py
 """
-NoAgentSolver: 无 agent 框架的单 LLM solver，接入完整 memory 接口。
+NoAgentSolver：单 LLM solver，作为无 agent 协作的 baseline。
 
-设计目标：
-  - memory API 调用顺序与 autogen / dylan / macnet 完全一致
-  - 去掉与交互式环境强绑定的 move_memory_state（FrontierScience 无 step reward）
-  - label 支持 bool（olympiad）和 float（research 软标签）
+继承 MetaMAS，run_task 结尾与 autogen / dylan / macnet 三个框架完全对齐：
 
-调用序列（对齐三个 MAS 框架）：
-  init_task_context(task_main, task_description)
-      ↓
-  retrieve_memory(query_task, ...)
-      ↓
-  build_prompt → model_caller.call()         ← 单次 LLM call，无 agent 协作
-      ↓
-  add_agent_node(agent_message, [])          ← 记录这次 LLM 输出
-      ↓
-  save_task_context(label)                   ← bool 或 float
-  backward(label)
+    final_reward, final_done, final_feedback = self.env.feedback()
+    self.meta_memory.save_task_context(label=final_done, feedback=final_feedback)
+    self.meta_memory.backward(final_done)
+    return final_reward, final_done
+
+judge 逻辑封装在 QAEnv.feedback() 里，NoAgentSolver 不感知评分细节。
 """
 
-from dataclasses import dataclass, field
-from typing import Union
+from dataclasses import dataclass
 
-from src.common.message import AgentMessage, MASMessage
+from src.mas.base import MetaMAS, QAEnv, Env
+from src.reasoning import ReasoningBase, ReasoningConfig
 from src.memory.base import MASMemoryBase
+from src.common.message import AgentMessage
+from src.llm import Message
 from src.mas.format import format_task_prompt_with_insights, format_task_context
+
+NOAGENT_SYSTEM_PROMPT = (
+    "You are an expert problem solver. "
+    "Analyze the problem carefully and provide a clear, well-reasoned answer."
+)
 
 
 @dataclass
-class NoAgentSolver:
+class NoAgentSolver(MetaMAS):
     """
-    单 LLM solver，完整接入 MASMemoryBase 接口。
-    
-    Attributes:
-        memory:           MASMemoryBase 实例（EmptyMemory / GenerativeMemory / ...）
-        model_caller:     任何实现了 .call(prompt) -> {"content": str} 的对象
-        successful_topk:  从 memory 检索成功案例数
-        failed_topk:      从 memory 检索失败案例数
-        insights_topk:    从 memory 检索 insight 数
-        threshold:        检索相似度阈值
+    单 LLM solver baseline，继承 MetaMAS。
+
+    与三个框架的核心差异：
+      - 无 agents_team，无多步 step 循环
+      - env 必须是 QAEnv 子类，judge 逻辑封装在 env.feedback() 里
     """
-    memory:          MASMemoryBase
-    model_caller:    object                        # ModelCaller or any .call(prompt) compatible
-    successful_topk: int   = 1
-    failed_topk:     int   = 0
-    insights_topk:   int   = 3
-    threshold:       float = 0.0
 
-    # ── 对外主接口（evaluator 调用）───────────────────────────────────────────
+    def __post_init__(self):
+        self.observers = []
+        self.reasoning_config = ReasoningConfig(temperature=0, stop_strs=['\n'])
 
-    def solve(self, task_main: str, task_description: str = None) -> str:
+    # ─────────────────────────────────────────────────────────────────────────
+    # build_system
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def build_system(
+        self,
+        reasoning: ReasoningBase,
+        mas_memory: MASMemoryBase,
+        env: Env,
+        config: dict,
+    ) -> None:
         """
-        完整执行一次 trial：init → retrieve → build_prompt → call LLM → record。
-        返回 LLM 的原始输出字符串（answer），label 由 evaluator 打分后再调用 record()。
-
         Args:
-            task_main:        题目核心内容（用于 memory 检索的 key）
-            task_description: 完整题目描述（含 prompt instruction），默认同 task_main
-
-        Returns:
-            str: LLM 的原始输出
+            reasoning  : LLM 推理模块。
+            mas_memory : memory 实例。
+            env        : 必须是 QAEnv 子类（如 HLEEnv / FrontierScienceEnv）。
+            config     : 支持以下字段：
+                           successful_topk (int)  : 检索成功案例数，默认 1
+                           failed_topk     (int)  : 检索失败案例数，默认 0
+                           insights_topk   (int)  : 检索 insight 数，默认 3
+                           threshold       (float): 检索相似度阈值，默认 0
+                           system_prompt   (str)  : 覆盖默认 system prompt
         """
-        if task_description is None:
-            task_description = task_main
+        if not isinstance(reasoning, ReasoningBase):
+            raise TypeError("reasoning must be an instance of ReasoningBase")
+        if not isinstance(mas_memory, MASMemoryBase):
+            raise TypeError("mas_memory must be an instance of MASMemoryBase")
+        if not isinstance(env, QAEnv):
+            raise TypeError("env must be an instance of QAEnv")
 
-        # 1. 初始化本次 trial 的 inside-trial context
-        self.memory.init_task_context(task_main, task_description)
+        self._successful_topk: int   = config.get('successful_topk', 1)
+        self._failed_topk:     int   = config.get('failed_topk', 0)
+        self._insights_topk:   int   = config.get('insights_topk', 3)
+        self._threshold:       float = config.get('threshold', 0)
+        self._system_prompt:   str   = config.get('system_prompt', NOAGENT_SYSTEM_PROMPT)
 
-        # 2. 从 cross-trial memory 检索历史经验
-        successful_trajs, failed_trajs, insights = self.memory.retrieve_memory(
-            query_task=task_main,
-            successful_topk=self.successful_topk,
-            failed_topk=self.failed_topk,
-            insight_topk=self.insights_topk,
-            threshold=self.threshold,
+        self.notify_observers("Configuration Loaded:")
+        self.notify_observers(f"Successful Topk   : {self._successful_topk}")
+        self.notify_observers(f"Failed Topk       : {self._failed_topk}")
+        self.notify_observers(f"Insights Topk     : {self._insights_topk}")
+        self.notify_observers(f"Retrieve Threshold: {self._threshold}")
+
+        self._reasoning = reasoning
+        self.meta_memory = mas_memory
+        self.set_env(env)
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # run_task
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def run_task(self, task_config: dict) -> tuple[float, bool]:
+        """
+        执行单次 trial，结尾与三个框架完全对齐。
+
+        task_config 支持以下字段：
+          task_main        (str)  : 题目核心内容（必填）
+          task_description (str)  : 完整题目描述，默认同 task_main
+          few_shots        (list) : in-context few-shot，默认空列表
+          context_hint     (dict) : 可选任务元信息，传给 memory
+          problem          (str)  : 传给 env.set_task() 的题目文本，默认同 task_main
+          reference        (str)  : 传给 env.set_task() 的参考答案 / rubric
+        """
+        if task_config.get('task_main') is None:
+            raise ValueError("Missing required key 'task_main' in task_config")
+
+        task_main:        str  = task_config['task_main']
+        task_description: str  = task_config.get('task_description', task_main)
+        few_shots:        list = task_config.get('few_shots', [])
+        context_hint:     dict = task_config.get('context_hint', {})
+
+        env: QAEnv = self.env
+        env.reset()
+        env.set_task(
+            problem=task_config.get('problem', task_main),
+            reference=task_config.get('reference', ''),
+            **{k: v for k, v in task_config.items()
+               if k not in ('task_main', 'task_description', 'few_shots',
+                            'context_hint', 'problem', 'reference')},
         )
 
-        # 3. 格式化历史经验用于 prompt 增强（与三个 MAS 框架完全一致）
+        # ── 初始化 inside-trial context ────────────────────────────────────
+        self.meta_memory.init_task_context(
+            task_main=task_main,
+            task_description=task_description,
+            context_hint=context_hint,
+        )
+
+        # ── 检索跨任务历史经验 ─────────────────────────────────────────────
+        successful_trajs, _, insights = self.meta_memory.retrieve_memory(
+            query_task=task_main,
+            successful_topk=self._successful_topk,
+            failed_topk=self._failed_topk,
+            insight_topk=self._insights_topk,
+            threshold=self._threshold,
+        )
+
+        # ── 构建 prompt ────────────────────────────────────────────────────
         memory_few_shots: list[str] = [
             format_task_context(
                 traj.task_description,
                 traj.task_trajectory,
-                traj.get_extra_field("key_steps"),
+                traj.get_extra_field('key_steps'),
             )
             for traj in successful_trajs
         ]
-        insight_strs: list[str] = list(insights)
 
-        # 4. 构建增强后的 user prompt
-        #    EmptyMemory 时三者均为空列表，prompt 退化为纯题目
-        augmented_prompt: str = format_task_prompt_with_insights(
-            few_shots=[],             # FrontierScience 数据集无 in-context few-shot
+        user_prompt: str = format_task_prompt_with_insights(
+            few_shots=few_shots,
             memory_few_shots=memory_few_shots,
-            insights=insight_strs,
-            task_description=self.memory.summarize(),
+            insights=list(insights),
+            task_description=self.meta_memory.summarize(),
         )
+        self.notify_observers(user_prompt)
 
-        # 5. 调用 LLM（单次，无 agent 协作）
-        response = self.model_caller.call(prompt=augmented_prompt)
-        answer: str = response["content"]
+        messages = [
+            Message('system', self._system_prompt),
+            Message('user',   user_prompt),
+        ]
 
-        # 6. 将本次输出记录到 inside-trial memory（对齐 add_agent_node 调用）
+        # ── 单次 LLM call ──────────────────────────────────────────────────
+        answer: str = self._reasoning(messages, self.reasoning_config)
+        self.notify_observers(f"Answer: {answer}")
+
+        # ── 记录到 inside-trial StateChain ─────────────────────────────────
         agent_msg = AgentMessage(
-            agent_name="solver",
-            user_instruction=augmented_prompt,
+            agent_name='solver',
+            user_instruction=user_prompt,
             message=answer,
         )
-        self.memory.add_agent_node(agent_msg, upstream_agent_ids=[])
+        self.meta_memory.add_agent_node(agent_msg, upstream_agent_ids=[])
 
-        return answer
+        # ── 提交 answer，触发 env 内部 judge ───────────────────────────────
+        env.submit(answer)
 
-    def record(self, label: Union[bool, float], feedback: str = None) -> None:
-        """
-        trial 结束后由 evaluator 调用，将带标签的结果存入 cross-trial memory。
+        # ── 与三个框架完全对齐的结尾 ───────────────────────────────────────
+        final_reward, final_done, final_feedback = self.env.feedback()
+        self.notify_observers(final_feedback)
+        self.meta_memory.save_task_context(label=final_done, feedback=final_feedback)
+        self.meta_memory.backward(final_done)
 
-        Args:
-            label:    olympiad 传 bool；research 传 float rubric score（软标签）
-            feedback: 可选的额外反馈文本
-        """
-        # 对齐 autogen/dylan/macnet 的 save_task_context + backward
-        self.memory.save_task_context(label=label, feedback=feedback)
-        self.memory.backward(label)
+        return final_reward, final_done
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Observer 日志机制（与三个框架保持一致）
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def add_observer(self, observer) -> None:
+        self.observers.append(observer)
+
+    def notify_observers(self, message: str) -> None:
+        for observer in self.observers:
+            observer.log(message)

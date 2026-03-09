@@ -10,8 +10,8 @@ experiment:
   agent_framework: none         # none / autogen / dylan / macnet
 
 model:
-  solver: gpt-4o-mini           # 被评测的模型
-  judge: gpt-4o                 # 打分模型
+  solver: o4-mini           # 被评测的模型
+  judge: gpt-5                 # 打分模型
   reasoning_effort: null        # null / low / medium / high（o1/o3 系列用）
 
 output:
