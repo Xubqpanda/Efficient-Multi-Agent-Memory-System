@@ -2,20 +2,20 @@
 from .base import MemoryBase
 from .methods import (
     EmptyMemory,
-#     GenerativeMASMemory,
-#     VoyagerMASMemory,
-#     MemoryBankMASMemory,
+    GenerativeMASMemory,
+    VoyagerMASMemory,
+    MemoryBankMASMemory,
 #     ChatDevMASMemory,
 #     MetaGPTMASMemory,
 #     GMemory,
 )
 
 __all__ = [
-#     "MemoryBase",
+    "MemoryBase",
     "EmptyMemory",
-#    "GenerativeMASMemory",
-#    "VoyagerMASMemory",
-#    "MemoryBankMASMemory",
+    "GenerativeMASMemory",
+    "VoyagerMASMemory",
+    "MemoryBankMASMemory",
 #    "ChatDevMASMemory",
 #    "MetaGPTMASMemory",
 #    "GMemory",

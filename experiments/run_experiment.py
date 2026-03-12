@@ -263,6 +263,10 @@ def main():
     except (FileNotFoundError, AttributeError) as e:
         logger.error(str(e))
         sys.exit(1)
+    except Exception as e:
+        logger.error(f"load_runner() 异常: {type(e).__name__}: {e}")
+        import traceback; traceback.print_exc()
+        sys.exit(1)
 
     runner.run(cfg, logger)
 

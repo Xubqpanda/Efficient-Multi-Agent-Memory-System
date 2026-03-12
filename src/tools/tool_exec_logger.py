@@ -21,7 +21,7 @@ class ToolExecLogger:
 
     def setup(self, log_dir: str) -> None:
         with self._lock:
-            self.close()
+            self._close_files()
             self._log_dir = Path(log_dir)
             self._log_dir.mkdir(parents=True, exist_ok=True)
             self._jsonl_fh = open(self._log_dir / "tool_exec.jsonl", "a", encoding="utf-8")
@@ -31,19 +31,23 @@ class ToolExecLogger:
 
     def close(self) -> None:
         with self._lock:
-            if self._jsonl_fh is not None:
-                try:
-                    self._jsonl_fh.close()
-                except Exception:
-                    pass
-            if self._readable_fh is not None:
-                try:
-                    self._readable_fh.close()
-                except Exception:
-                    pass
-            self._jsonl_fh = None
-            self._readable_fh = None
+            self._close_files()
             self._enabled = False
+
+    def _close_files(self) -> None:
+        """关闭文件句柄（调用方需持有 _lock）。"""
+        if self._jsonl_fh is not None:
+            try:
+                self._jsonl_fh.close()
+            except Exception:
+                pass
+        if self._readable_fh is not None:
+            try:
+                self._readable_fh.close()
+            except Exception:
+                pass
+        self._jsonl_fh = None
+        self._readable_fh = None
 
     def log(self, name: str, args: dict[str, Any], output: str, ok: bool, duration_ms: int) -> None:
         if not self._enabled:

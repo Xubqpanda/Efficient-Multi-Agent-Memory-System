@@ -1,0 +1,8 @@
+experiment:
+  memory_method: voyager
+
+memory_config:
+  namespace: hle_voyager
+  working_dir: experiments/results/memory_store
+  successful_topk: 1
+  failed_topk: 1

@@ -1,0 +1,8 @@
+experiment:
+  memory_method: generative
+
+memory_config:
+  namespace: hle_generative
+  working_dir: experiments/results/memory_store
+  successful_topk: 1
+  failed_topk: 1
