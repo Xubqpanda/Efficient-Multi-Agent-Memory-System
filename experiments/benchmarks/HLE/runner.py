@@ -52,6 +52,8 @@ from tqdm import tqdm
 from src.envs.hle                    import HLEEnv
 from src.solver.single_agent         import SingleAgentSolver
 from src.memory.methods.empty        import EmptyMemory
+from src.memory                      import GenerativeMASMemory, VoyagerMASMemory, MemoryBankMASMemory
+from src.utils                       import EmbeddingFunc
 from src.reasoning                   import ReasoningIO
 from src.llm.model_caller            import ModelCaller
 from src.llm.token_tracker           import token_tracker
@@ -390,14 +392,44 @@ def run(cfg: dict, logger: logging.Logger) -> None:
     )
     reasoning = ReasoningIO(llm_model=solver_caller)
 
-    working_dir = mem_cfg.get("working_dir", str(output_dir / "memory_store"))
-    Path(working_dir).mkdir(parents=True, exist_ok=True)
-    memory = EmptyMemory(
-        namespace=mem_cfg.get("namespace", "hle_empty"),
-        global_config={"working_dir": str(ts_dir / "memory_store")},
-        llm_model=None,
-        embedding_func=None,
-    )
+    memory_store_dir = str(ts_dir / "memory_store")
+    Path(memory_store_dir).mkdir(parents=True, exist_ok=True)
+
+    memory_method = exp_cfg.get("memory_method", "empty")
+    if memory_method == "empty":
+        memory = EmptyMemory(
+            namespace=mem_cfg.get("namespace", "hle_empty"),
+            global_config={"working_dir": memory_store_dir},
+            llm_model=None,
+            embedding_func=None,
+        )
+    elif memory_method in ("generative", "voyager", "memorybank"):
+        memory_caller = ModelCaller(
+            model=model_cfg["solver"],
+            role="memory",
+            base_url=base_url,
+        )
+        embedding_func = EmbeddingFunc()
+        mem_global_config = {
+            "working_dir":     memory_store_dir,
+            "successful_topk": mem_cfg.get("successful_topk", 1),
+            "failed_topk":     mem_cfg.get("failed_topk", 1),
+        }
+        mem_cls = {
+            "generative": GenerativeMASMemory,
+            "voyager":    VoyagerMASMemory,
+            "memorybank": MemoryBankMASMemory,
+        }[memory_method]
+        memory = mem_cls(
+            namespace=mem_cfg.get("namespace", f"hle_{memory_method}"),
+            global_config=mem_global_config,
+            llm_model=memory_caller,
+            embedding_func=embedding_func,
+        )
+        logger.info(f"Memory: {memory_method} (namespace={memory.namespace})")
+    else:
+        logger.error(f"Unknown memory_method: {memory_method}")
+        sys.exit(1)
 
     framework = exp_cfg.get("agent_framework", "single_agent")
     if framework == "single_agent":

@@ -32,6 +32,22 @@ class ToolExecLogger:
     def close(self) -> None:
         with self._lock:
             self._close_no_lock()
+            self._enabled = False
+
+    def _close_no_lock(self) -> None:
+        """关闭文件句柄（调用方需持有 _lock）。"""
+        if self._jsonl_fh is not None:
+            try:
+                self._jsonl_fh.close()
+            except Exception:
+                pass
+        if self._readable_fh is not None:
+            try:
+                self._readable_fh.close()
+            except Exception:
+                pass
+        self._jsonl_fh = None
+        self._readable_fh = None
 
     def log(self, name: str, args: dict[str, Any], output: str, ok: bool, duration_ms: int) -> None:
         if not self._enabled:
